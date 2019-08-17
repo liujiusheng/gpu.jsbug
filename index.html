@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>gpu计算测试</title>
+    <base href="./">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <script src="gpu-browser2.min.js"></script>
+    <script src="helper.js"></script>
+    <script>
+    
+    </script>
+</head>
+
+<body>
+
+</body>
+<script>
+    const gpu = new GPU({mode:'gpu'});
+    const multiplyMatrix = gpu.createKernel(function (polygon1, polygon2, polygon1Length, polygon2Length) {
+        // 复杂类型不能直接赋值
+        //不能使用length
+        //不能使用for in
+        // 多维数组数据全部要重新拼装后返回，直接返回不能成功
+
+        // 先生成两个项的外接矩形分别为：minX:0, minY:0, maxX:0, maxY:0
+        let polygon1Extend = [0,0,0,0];
+        let polygon2Extend = [0,0,0,0];
+        for(let i=0; i< polygon1Length; i++){
+            if(polygon1[i][0]<polygon1Extend[0]){
+                polygon1Extend[0] = polygon1[i][0];
+            }
+            if(polygon1[i][1]<polygon1Extend[1]){
+                polygon1Extend[1] = polygon1[i][1];
+            }
+            if(polygon1[i][0]>polygon1Extend[2]){
+                polygon1Extend[2] = polygon1[i][0];
+            }
+            if(polygon1[i][1]>polygon1Extend[3]){
+                polygon1Extend[3] = polygon1[i][1];
+            }
+        }
+        for(let k=0; k< polygon2Length; k++){
+            if(polygon2[k][0]<polygon2Extend[0]){
+                polygon2Extend[0] = polygon2[k][0];
+            }
+            if(polygon2[k][1]<polygon2Extend[1]){
+                polygon2Extend[1] = polygon2[k][1];
+            }
+            if(polygon2[k][0]>polygon2Extend[2]){
+                polygon2Extend[2] = polygon2[k][0];
+            }
+            if(polygon2[k][1]>polygon2Extend[3]){
+                polygon2Extend[3] = polygon2[k][1];
+            }
+        }
+
+        // 判断矩形是否相交,判断两矩形中心点距离与边长形成的三角形对角线的距离就可以了
+        //计算矩形中心的距离
+        let center1 = [(polygon1Extend[0]+polygon1Extend[2])/2, (polygon1Extend[1]+polygon1Extend[3])/2];
+        let center2 = [(polygon2Extend[0]+polygon2Extend[2])/2, (polygon2Extend[1]+polygon2Extend[3])/2];
+        let distance = Math.sqrt((center2[0]-center1[0])*(center2[0]-center1[0]) + (center2[1]-center1[1])*(center2[1]-center1[1]));
+
+        // 计算两矩形边组成的三角形对角线的长度
+        let polygon1Height = polygon1Extend[3]-polygon1Extend[1];
+        let polygon1Width = polygon1Extend[2]-polygon1Extend[0];
+        let polygon2Height = polygon2Extend[3]-polygon2Extend[1];
+        let polygon2Width = polygon2Extend[2]-polygon2Extend[0];
+        let horizontalWith = (polygon1Width+polygon2Width)/2;
+        let verticalHeight = (polygon1Height+polygon2Height)/2;
+        let diagonalLength = Math.sqrt(horizontalWith*horizontalWith + verticalHeight*verticalHeight);
+
+        // 判断是否相交
+        if(distance<diagonalLength){
+            // 相交
+            return 1;
+        }else {
+            // 不相交
+            return 0;
+        }
+        // return [distance,diagonalLength];
+    }).setOutput([1]);
+    
+    
+    //.setGraphical(true)
+//     const canvas = multiplyMatrix.canvas;
+// document.getElementsByTagName('body')[0].appendChild(canvas);
+let num = 0;
+getJSON('./building.json', function(build){
+    getJSON('./landuse.json', function(land){
+        let buildings = build.features;
+        let lands = land.features;
+        // console.log(buildings.length*lands.length);
+        let buildnum = 0;
+        let landnum = 0;
+        for (const i of buildings){
+            buildnum++;
+            for (const k of lands){
+                landnum++
+                // console.log(buildnum,landnum);
+                if(i.geometry.type === 'Polygon'&&k.geometry.type === 'Polygon'){
+                    const c = multiplyMatrix(i.geometry.coordinates[0], k.geometry.coordinates[0], i.geometry.coordinates[0].length, k.geometry.coordinates[0].length);
+                    // console.log(c);
+                    if(c[0]==1){
+                        num ++;
+                        // console.log(num);
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+
+</html>
